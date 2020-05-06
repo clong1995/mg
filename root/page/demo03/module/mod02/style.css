@@ -1,0 +1,13 @@
+DOMAIN {
+    border: 3px solid #000000;
+}
+
+.foo {
+    width: 400px;
+    height: 300px;
+    background: #cccccc;
+}
+
+.foo > IMG {
+    height: 100%;
+}

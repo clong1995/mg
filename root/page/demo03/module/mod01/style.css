@@ -1,0 +1,10 @@
+DOMAIN {
+    /*DOMAIN 指的是本模块*/
+    width: 200px;
+    height: 200px;
+    background: yellow;
+    border: 3px solid #000000;
+}
+.foo{
+    color: green;
+}
