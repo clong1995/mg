@@ -1,0 +1,95 @@
+/*苹果灰*/
+:root {
+    --color: #000000;
+    --color1: #ececec;
+    --color2: #666;
+    --color3: #cecece;
+    --color4: rgba(206, 206, 206, 0.45);
+    --color5: #408BFA;
+    --color6: #fafafa;
+    --color7: #20222A;
+    --color8: #ffffff;
+    --color9: #111316;
+    --color10: #c49962;
+    --color11: #ccc;
+    --color12: #f3f3f3;
+    --color13: #ffd191;
+    --color14: #feebcc;
+}
+
+body {
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    background: var(--color6);
+    color: var(--color);
+}
+
+@font-face {
+    font-family: 'iconfont';
+    /*src: url('../iconfont/iconfont.woff2');*/
+    src: url('//at.alicdn.com/t/font_1677177_qi0989bfzu.woff2');
+}
+
+.iconfont {
+    font-family: "iconfont" !important;
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/*滚动条整体部分*/
+.scrollbar {
+}
+
+/*滚动条整体部分*/
+.scrollbar::-webkit-scrollbar {
+    position: absolute;
+    right: 15px;
+    width: 15px;
+    height: 15px;
+}
+
+/*滚动条两端的按钮*/
+.scrollbar::-webkit-scrollbar-button {
+
+}
+
+/*外层轨道*/
+.scrollbar::-webkit-scrollbar-track {
+
+}
+
+/*内层轨道，滚动条中间部分（除去）*/
+.scrollbar::-webkit-scrollbar-track-piece {
+
+}
+
+/*滚动条里面可以拖动的那个*/
+.scrollbar::-webkit-scrollbar-thumb {
+
+}
+
+/*边角*/
+.scrollbar::-webkit-scrollbar-corner {
+    background: none;
+}
+
+/*定义右下角拖动块的样式*/
+.scrollbar::-webkit-resizer {
+
+}
+
+.animation_rotate {
+    animation: rotate 5s linear infinite
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0)
+    }
+    100% {
+        transform: rotate(360deg)
+    }
+}
