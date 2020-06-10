@@ -32,18 +32,29 @@ var cacheServer = make(map[string]cacheItem)
 
 var sw float64
 var sh float64
+var ai bool
+var su bool
 
 func main() {
-	addr := flag.String("addr", ":50003", "服务器端口")
+	addr := flag.String("addr", ":80", "服务器端口")
 	cache := flag.Bool("cache", false, "缓存")
+
+	//两个单位 sw,sh
+	smartUnit := flag.Bool("smartUnit", false, "开启单位转换")
 	smartWidth := flag.Float64("smartWidth", 750, "基准宽度")
 	smartHeight := flag.Float64("smartHeight", 1334, "基准高度")
+
+	//适配ie
+	adaptIE := flag.Bool("adaptIE", false, "适配ie")
 
 	flag.Parse()
 	isCache = *cache
 
+	su = *smartUnit
 	sw = 100.0 / *smartWidth
 	sh = 100.0 / *smartHeight
+
+	ai = *adaptIE
 
 	//静态资源服
 	http.Handle("/resource/",
@@ -412,16 +423,18 @@ func moduleStyleCompiler(entryPath, scope, pagePath, entry string, appHtml *stri
 			str := string(data)
 
 			//单位转换
-			swPat := `\d{1,}sw`
-			shPat := `\d{1,}sh`
-			swPatRe := regexp.MustCompile(swPat)
-			shPatRe := regexp.MustCompile(shPat)
-			str = swPatRe.ReplaceAllStringFunc(str, func(s string) string {
-				return replaceSmartUnit(s, "sw", "vw", sw)
-			})
-			str = shPatRe.ReplaceAllStringFunc(str, func(s string) string {
-				return replaceSmartUnit(s, "sh", "vh", sh)
-			})
+			if su {
+				swPat := `\d{1,}sw`
+				shPat := `\d{1,}sh`
+				swPatRe := regexp.MustCompile(swPat)
+				shPatRe := regexp.MustCompile(shPat)
+				str = swPatRe.ReplaceAllStringFunc(str, func(s string) string {
+					return replaceSmartUnit(s, "sw", "vw", sw)
+				})
+				str = shPatRe.ReplaceAllStringFunc(str, func(s string) string {
+					return replaceSmartUnit(s, "sh", "vh", sh)
+				})
+			}
 
 			if str == "" && entry == "" {
 				*appHtml = strings.Replace(*appHtml, "</head>", "<style></style></head>", 1)
@@ -646,7 +659,11 @@ func moduleImgTagCompiler(scope, pagePath, entry string, appHtml *string) {
 }
 
 func isIE(userAgent string) bool {
-	return strings.Contains(userAgent, "Trident")
+	if ai {
+		return strings.Contains(userAgent, "Trident")
+	} else {
+		return ai
+	}
 }
 
 func replaceSmartUnit(s, su1, su2 string, size float64) string {

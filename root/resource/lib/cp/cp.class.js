@@ -23,10 +23,12 @@
  *    用websocket实现的不定时长的超级http
  *    监听元素大小等的变化
  */
+//在线压缩
+//https://skalman.github.io/UglifyJS-online/
 'use strict';
 
 //浏览器检测
-class Base {
+class Cp {
     constructor() {
         //this.endebug();
         /**
@@ -120,9 +122,6 @@ class Base {
 
         this.formatStyle();
         this._animation = new Map();
-
-        //禁用菜单
-        this.forbiddenMenu();
     }
 
     setClipboard(dom) {
@@ -144,6 +143,9 @@ class Base {
      * @param clazz
      */
     addClass(dom, clazz) {
+        if (!clazz) {
+            return dom;
+        }
         dom.length !== undefined
             ? dom.forEach(vd => Array.isArray(clazz)
             ? clazz.forEach(v => vd.classList.add(v))
@@ -575,7 +577,6 @@ class Base {
             }
             html,body{
                 cursor:auto;
-                user-select:auto;
                 width:100%;
                 height:100%;
                 overflow: hidden;
@@ -955,6 +956,26 @@ class Base {
         open ? window.open(url, "_blank") : window.location.href = url;
     }
 
+    linkReplace(url, data = {}) {
+        let param = '';
+        if (data) {
+            for (let k in data) {
+                param += k + '=' + escape(data[k]) + '&';
+            }
+        }
+        //param = param + this.randomChar() + "=" + new Date().getTime();
+        if (param !== "") {
+            param = param.substring(0, param.length - 1);
+            if (url.includes("?")) {
+                url += "&" + param;
+            } else {
+                url += "?" + param;
+            }
+        }
+        document.location.replace(url);
+    }
+
+
     /**
      * 打开新的窗口
      * @param url
@@ -983,7 +1004,7 @@ class Base {
             let oScript = this.createDom("script");
             oScript.setAttribute('src', path);
             this.append(this._head, oScript);
-            //this.remove(oScript);
+            this.remove(oScript);
             oScript.onload = () => {
                 this._scriptSet.add(path);
                 typeof callback === "function" && callback();
@@ -1483,17 +1504,18 @@ class Base {
     }
 
 
-    query(select, target = document, all = false) {
-        if (all) {
-            return target.querySelectorAll(select);
-        } else {
-            return target.querySelector(select);
-        }
+    query(select, target = document) {
+        return target.querySelector(select);
+    }
+
+    queryAll(select, target = document) {
+        return target.querySelectorAll(select);
     }
 
     /**
      * 随机字母
      * @param len
+     * @param type
      * @returns {string}
      */
     randomChar(len = 4, type = 'upper') {
@@ -1538,7 +1560,7 @@ class Base {
      */
     remove(dom, parent = null) {
         dom && (typeof dom === "string" && parent
-            ? this.remove(this.query(dom, parent, true))
+            ? this.remove(this.queryAll(dom, parent))
             : dom.length !== undefined
                 ? dom.forEach(v => v.parentNode.removeChild(v))
                 : dom.parentNode.removeChild(dom))
@@ -2107,7 +2129,7 @@ class Base {
             if (!clazz) {
                 return ele;
             }
-            return this.query(clazz, ele.parentNode, true);
+            return this.queryAll(clazz, ele.parentNode);
         } else {
             this.log("请输入正确的dom元素！", "log");
             return null;
@@ -2171,7 +2193,7 @@ class Base {
 
     toggleActive(dom) {
         //去掉已激活元素
-        this.removeActive(this.query(".active", dom.parentNode, true));
+        this.removeActive(this.queryAll(".active", dom.parentNode));
         //激活自己
         this.addActive(dom);
     }
@@ -2194,6 +2216,10 @@ class Base {
         let attr = {};
         attr["data-" + suffix] = data;
         this.attr(dom, attr)
+    }
+
+    emptyData(dom, suffix) {
+        this.setData(dom, "", suffix);
     }
 
     //TODO https://blog.csdn.net/wconvey/article/details/54171693
@@ -2374,6 +2400,15 @@ class Base {
         }
         document.body.removeChild(inputDom);
     }
+
+    children(dom) {
+        dom.childNodes.forEach(v=>{
+            if(v.nodeType === 3){
+                dom.removeChild(v);
+            }
+        })
+        return dom.childNodes;
+    }
 }
 
-!window.cp ? window.cp = new Base() : console.warn('cp 全局变量已被占用！');
+!window.cp ? window.cp = new Cp() : console.warn('cp 全局变量已被占用！');

@@ -6,6 +6,7 @@ class App {
         this.btn1Dom = document.querySelector(".btn1");
         this.btn2Dom = document.querySelector(".btn2");
         this.btn3Dom = document.querySelector(".btn3");
+        this.btn4Dom = document.querySelector(".btn4");
         this.boxDom = document.querySelector(".box");
     }
 
@@ -17,12 +18,15 @@ class App {
     }
 
     EVENT() {
-        //这里做事件的统一
+        //这里做事件的统一绑定
         //请不要在js里的其他地方到处乱写事件，即难看又难读！
 
         this.btn1Dom.addEventListener("click", this.button1);
         this.btn2Dom.addEventListener("click", this.button2.bind(this));
         this.btn3Dom.onclick = this.button3;
+        this.btn4Dom.addEventListener("click", () => {
+            alert("button4");
+        });
     }
 
     READY() {
