@@ -30,6 +30,7 @@
 //浏览器检测
 class Cp {
     constructor() {
+        this._origin = document.location.origin;
         //this.endebug();
         /**
          * 是否加载完成
@@ -88,12 +89,6 @@ class Cp {
         this._global = new Map();
 
         /**
-         * 根目录
-         * @type {string}
-         */
-        this.root = this.path();
-
-        /**
          * 加载组件
          * 会在全局范围内记录使用的组件，不会发出重复请求
          * @type {any}
@@ -112,16 +107,20 @@ class Cp {
          * @type {any}
          */
         window.CLASS = this._define.bind(this);
-
-        this._sheetArr = document.styleSheets;
         this._head = document.head;
-        if (this._sheetArr.length <= 0)
+        if (document.styleSheets.length <= 0)
             this.append(this._head, this.createDom('style'));//创建style节点
-        this._firstSheet = this._sheetArr.item(0);
-        this._lastSheet = this._sheetArr.item(this._sheetArr.length - 1);
+        else {
+            this._firstSheet = document.styleSheets.item(0);
+            if (this._firstSheet.href && !this._firstSheet.href.startsWith(this._origin)) {
+                this.appendTo(this._head, this.createDom('style'),-1);//创建style节点
+            }
+        }
+        this._firstSheet = document.styleSheets.item(0);
+
+        this._lastSheet = document.styleSheets.item(document.styleSheets.length - 1);
 
         this.formatStyle();
-        this._animation = new Map();
     }
 
     setClipboard(dom) {
@@ -445,7 +444,9 @@ class Cp {
 
     //删除css
     deleteSheet(selectorText) {
-        [...this._lastSheet.cssRules].forEach((v, i) => v.selectorText.indexOf(selectorText) === 0 && this._lastSheet.deleteRule(i));
+        [...document.styleSheets].forEach(v => {
+            [...v.cssRules].forEach((v, i) => v.selectorText.indexOf(selectorText) === 0 && v.deleteRule(i));
+        });
     }
 
     //批量删除
@@ -749,8 +750,8 @@ class Cp {
      */
     getStyleSheet(selector = '') {
         let cssRule = new Set();
-        //用 Array.from(this._sheetArr) 替换了 [...this._sheetArr]，有些浏览器在styleSheets上没有部署Iterator
-        Array.from(this._sheetArr).forEach((v, i) =>
+        //用 Array.from(document.styleSheets) 替换了 [...document.styleSheets]，有些浏览器在styleSheets上没有部署Iterator
+        Array.from(document.styleSheets).forEach((v, i) =>
             Array.from(v.cssRules).forEach((v2, i2) => {
                 if (selector !== '') {
                     if (v2.selectorText && v2.selectorText.startsWith(selector))
@@ -859,21 +860,6 @@ class Cp {
         );
     }
 
-    //动画
-    keyframes(rules) {
-        let name = this.simple();
-        let rulesText = '@keyframes ' + name + '{';
-        for (let r in rules) {
-            rulesText += r + '{';
-            for (let ir in rules[r]) {
-                rulesText += this.underscored(ir) + ':' + rules[r][ir] + ';';
-            }
-            rulesText += '}';
-        }
-        this._lastSheet.insertRule(rulesText + '}', this._lastSheet.cssRules.length);
-        return name;
-    }
-
     /**
      * TODO 要兼容存在空格和换行的情况
      * 查询是否存在样式
@@ -882,7 +868,7 @@ class Cp {
      * @returns {*|boolean}
      */
     hasSheet(selectorText) {
-        return selectorText && [...this._sheetArr].reverse().some(v => [...v.cssRules].reverse().some(v2 => v2.selectorText && v2.selectorText === selectorText));
+        return selectorText && [...document.styleSheets].reverse().some(v => [...v.cssRules].reverse().some(v2 => v2.selectorText && v2.selectorText === selectorText));
     }
 
     formatSelectorText() {
@@ -2402,8 +2388,8 @@ class Cp {
     }
 
     children(dom) {
-        dom.childNodes.forEach(v=>{
-            if(v.nodeType === 3){
+        dom.childNodes.forEach(v => {
+            if (v.nodeType === 3) {
                 dom.removeChild(v);
             }
         })
