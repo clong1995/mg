@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -37,16 +38,27 @@ var sh float64
 var su bool
 
 func main() {
-	addr := flag.String("addr", ":80", "服务器端口")
-	cache := flag.Bool("cache", false, "缓存")
+	//端口
+	addr := flag.String("addr", ":80", "server port")
+
+	cache := flag.Bool("cache", false, "enable the cache")
+
+	pack := flag.Bool("pack", false, "package")
 
 	//两个单位 sw,sh
-	smartUnit := flag.Bool("smartUnit", false, "开启单位转换")
-	smartWidth := flag.Float64("smartWidth", 750, "基准宽度")
-	smartHeight := flag.Float64("smartHeight", 1334, "基准高度")
+	smartUnit := flag.Bool("smartUnit", false, "unit conversion")
+	smartWidth := flag.Float64("smartWidth", 750, "base width")
+	smartHeight := flag.Float64("smartHeight", 1334, "base height")
 
-	flag.Parse()
+	flag.Parse() //接收参数结束
+
 	isCache = *cache
+
+	if *pack {
+		isCache = true
+		//独立携程执行打包
+		go goPack(*addr)
+	}
 
 	su = *smartUnit
 	sw = 100.0 / *smartWidth
@@ -69,7 +81,6 @@ func main() {
 
 	//服务
 	log.Fatal(http.ListenAndServe(*addr, nil))
-
 }
 
 //读取静态文件的中间件
@@ -605,4 +616,136 @@ func replaceSmartUnit(s, su1, su2 string, size float64) string {
 		return `: 0;`
 	}
 	return fmt.Sprintf(` %.1f%s`, f*size, su2)
+}
+
+func portInUse(port int) bool {
+	checkStatement := fmt.Sprintf("lsof -i:%d ", port)
+	output, err := exec.Command("sh", "-c", checkStatement).CombinedOutput()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(output) > 0 {
+		return true
+	}
+	return false
+}
+
+func goPack(addr string) {
+	log.Println("Packing is being prepared ...")
+	log.Println("The packaging contains only native CSS, HTML, and JS.")
+	addrArr := strings.Split(addr, ":")
+	if len(addrArr) != 2 {
+		log.Fatal("The addr parameter is incorrect")
+	}
+	port, err := strconv.Atoi(addrArr[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	test := 3
+	for test > -1 {
+		if portInUse(port) {
+			break
+		} else {
+			if test == 0 {
+				log.Fatal(fmt.Sprintf("the %s port service is not started", addr))
+			} else {
+				log.Println("wait for the service to start...")
+				time.Sleep(time.Duration(3) * time.Second)
+			}
+			test = test - 1
+		}
+	}
+	log.Println("delete old package")
+	dist := "./dist"
+	err = os.RemoveAll(dist)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("make new package")
+	err = os.Mkdir(dist, 0777)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("start packing...")
+	files, err := ioutil.ReadDir("./root/page")
+	if err != nil {
+		log.Fatal(err)
+	}
+	length := 0
+	for _, f := range files {
+		name := f.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		log.Println("reading the source : " + name + "...")
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/%s", port, name))
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+		length++
+	}
+
+	if length == len(cacheServer) {
+		log.Println(fmt.Sprintf("%d files will be packaged...", length))
+	}
+
+	//输出
+	for s, item := range cacheServer {
+		log.Println("packaging :" + s + "...")
+		/*err = os.MkdirAll(dist+"/page/"+s[1:], 0777)
+		if err != nil {
+			log.Fatal(err)
+		}
+		f, err := os.Create(dist + "/page/" + s[1:] + "/index.html")
+		*/
+		f, err := os.Create(dist + "/" + s[1:] + ".html")
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = f.Write(item.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = f.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	log.Println("copy resource...")
+	copyResource()
+	log.Println("copy image...")
+	copyImage()
+	log.Println("package success! in the [dist] directory.")
+	os.Exit(0)
+}
+
+func copyResource() {
+	checkStatement := "rsync -av --exclude 'module' --exclude 'iconfont' --exclude '.*' ./root/resource ./dist"
+	_, err := exec.Command("sh", "-c", checkStatement).CombinedOutput()
+	if err != nil {
+		log.Fatal(err)
+	}
+	ico := "./root/resource/iconfont/favicon.ico"
+	if exists(ico) {
+		input, err := ioutil.ReadFile("./root/resource/iconfont/favicon.ico")
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = ioutil.WriteFile("./dist/favicon.ico", input, 0777)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func copyImage() {
+	checkStatement := "rsync -av --exclude '.*' --exclude '*.html' --exclude '*.js' --exclude '*.css' ./root/page ./dist"
+	_, err := exec.Command("sh", "-c", checkStatement).CombinedOutput()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

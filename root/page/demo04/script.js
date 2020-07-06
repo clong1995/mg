@@ -4,7 +4,7 @@ class App {
     }
 
     INIT() {
-        console.log("hello world!")
+
     }
 
     EVENT() {
@@ -15,5 +15,3 @@ class App {
 
     }
 }
-
-

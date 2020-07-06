@@ -1,32 +1,20 @@
 const CONF = {
     //页面地址
-    WebAddr: "http://127.0.0.1:50003",
+    WebAddr: "http://127.0.0.1:8888",
     //服务地址
-    //ServerAddr: "https://127.0.0.1",
-    ServerAddr: "http://127.0.0.1:8080",
+    ServerAddr: "http://127.0.0.1:8989",
 };
 
-//判断有没有token，没有的话
-
-
-if (typeof global === "undefined") {
-    //浏览器回到首页
-    switch (window.location.pathname) {
-        case "/":
-        case "/signup":
-        case "/api":
-        case "/signupPhoneCode":
-        case "/loginPhoneCode":
-            break;
-        default:
-            window.location.href = "/";
-    }
-} else {
-    //客户端回到登录
-    if (!localStorage.getItem("token") && window.location.pathname !== "/login") {
-        localStorage.clear();
-        window.location.href = "/login"
-    }
+//浏览器回到首页
+switch (window.location.pathname) {
+    case "/":
+    case "/signup":
+        break;
+    default:
+        /*if (!localStorage.getItem("token") && window.location.pathname !== "/login") {
+            localStorage.clear();
+            window.location.href = "/login"
+        }*/
 }
 
 
@@ -42,11 +30,8 @@ const ajaxHeadersInterceptor = url => {
 
     //不需要token的接口
     switch (`${p}/${l}`) {
-        case "business/signupPhoneCode":
-        case "business/loginPhoneCode":
-        case "business/signup":
-        case "nvc/analyze":
-        case "business/login":
+        case "user/signup":
+        case "user/login":
             return {
                 "Content-type": "application/x-www-form-urlencoded"
             }
@@ -63,22 +48,13 @@ const ajaxHeadersInterceptor = url => {
         "token": token
     }
 };
+
 //消息体处理
 const ajaxResponseInterceptor = res => {
-    /*if (res.code !== 0) {
-        console.error(res);
-        if (res.code === 2) { //认证错误
-            localStorage.removeItem("Authorization");
-            cp.link("/login");
-            //终止程序
-            return false;
-        }
-    }*/
-    if(res.state === "token is invalid"){
+    if (res.state === "token is invalid") {
         localStorage.clear();
         cp.link("/login");
         return false;
     }
     return res;
 };
-
