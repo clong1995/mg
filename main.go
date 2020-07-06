@@ -455,7 +455,11 @@ func moduleScriptCompiler(entryPath, entry string, appHtml *string) {
 			if entry != "" {
 				//简化书写调用模块
 				str = strings.ReplaceAll(str, "MODULE", "this.APP.getModule")
+
+				str = strings.ReplaceAll(str, ".DOMAIN", "GOTEMPWORD")
 				str = strings.ReplaceAll(str, "DOMAIN", "this.DOMAIN")
+				str = strings.ReplaceAll(str, "GOTEMPWORD", ".DOMAIN")
+
 				str = strings.ReplaceAll(str, "NAME", "this.NAME")
 				str = strings.ReplaceAll(str, "SUPER", "this.APP")
 				//构造
@@ -474,7 +478,10 @@ func moduleScriptCompiler(entryPath, entry string, appHtml *string) {
 				//主模块
 				//简化书写调用模块
 				str = strings.ReplaceAll(str, "MODULE", "this.getModule")
+				str = strings.ReplaceAll(str, ".DOMAIN", "GOTEMPWORD")
 				str = strings.ReplaceAll(str, "DOMAIN", "this.DOMAIN")
+				str = strings.ReplaceAll(str, "GOTEMPWORD", ".DOMAIN")
+
 				//主模块的script
 				str = classReg.ReplaceAllString(str, `
 				document.addEventListener("DOMContentLoaded", () => {

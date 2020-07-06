@@ -113,7 +113,7 @@ class Cp {
         else {
             this._firstSheet = document.styleSheets.item(0);
             if (this._firstSheet.href && !this._firstSheet.href.startsWith(this._origin)) {
-                this.appendTo(this._head, this.createDom('style'),-1);//创建style节点
+                this.appendTo(this._head, this.createDom('style'), -1);//创建style节点
             }
         }
         this._firstSheet = document.styleSheets.item(0);
@@ -585,7 +585,7 @@ class Cp {
             }
             body, button, input, select, textarea, a, li {
                 font-size: 12px;
-                line-height:1.2;
+                line-height:1.3;
                 font-family:-apple-system,"Helvetica Neue",Helvetica,Arial,"PingFang SC","Hiragino Sans GB","WenQuanYi Micro Hei","Microsoft Yahei",sans-serif;
                 -webkit-font-smoothing: antialiased;
                 word-wrap: break-word;
@@ -859,6 +859,8 @@ class Cp {
             }`
         );
     }
+
+    //动画
 
     /**
      * TODO 要兼容存在空格和换行的情况
@@ -2372,7 +2374,6 @@ class Cp {
             }, 100)
         })
     }
-
 
     clipboard(str, cb = null) {
         const inputDom = this.createDom("INPUT", {
