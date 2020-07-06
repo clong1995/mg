@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var isCache bool
@@ -28,11 +30,10 @@ type cacheItem struct {
 	Body   []byte
 }
 
-var cacheServer = make(map[string]cacheItem)
+var cacheServer = make(map[string]*cacheItem)
 
 var sw float64
 var sh float64
-var ai bool
 var su bool
 
 func main() {
@@ -44,9 +45,6 @@ func main() {
 	smartWidth := flag.Float64("smartWidth", 750, "基准宽度")
 	smartHeight := flag.Float64("smartHeight", 1334, "基准高度")
 
-	//适配ie
-	adaptIE := flag.Bool("adaptIE", false, "适配ie")
-
 	flag.Parse()
 	isCache = *cache
 
@@ -54,20 +52,15 @@ func main() {
 	sw = 100.0 / *smartWidth
 	sh = 100.0 / *smartHeight
 
-	ai = *adaptIE
-
 	//静态资源服
 	http.Handle("/resource/",
-		http.StripPrefix("/resource/", setHeaderHandler(
-			es6toes5Handler(
-				http.FileServer(
-					http.Dir("./root/resource"))))))
+		setHeaderHandler(
+			fileServerHandler()))
 
 	//页面和模块内静态资源，主要是图片
 	http.Handle("/page/",
-		http.StripPrefix("/page/",
-			setHeaderHandler(
-				http.FileServer(http.Dir("./root/page")))))
+		setHeaderHandler(
+			fileServerHandler()))
 
 	//动态页面路由
 	http.Handle("/",
@@ -79,47 +72,55 @@ func main() {
 
 }
 
-//设置头的中间件
-func setHeaderHandler(h http.Handler) http.Handler {
+//读取静态文件的中间件
+func fileServerHandler() http.Handler {
+	root := "./root"
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cacheHeader(w)
-		h.ServeHTTP(w, r)
+		pPath := r.URL.Path
+		filePath := root + pPath
+		if !existsAndWrite(filePath, w) {
+			return
+		}
+		file, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		//获取文件contentType
+		contentType := mime.TypeByExtension(filepath.Ext(pPath))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		httpWriteAndCache(w, pPath, contentType, file)
 	})
 }
 
-//es6转es5的中间件
-func es6toes5Handler(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		urlPath := r.URL.Path
-		//自动转脚本
-		if isIE(r.Header.Get("User-Agent")) && strings.HasPrefix(urlPath, "script/") {
-			scriptPath := "./root/resource/" + urlPath
-			if !existsAndWrite(scriptPath, w) {
-				return
-			}
-			script, err := ioutil.ReadFile(scriptPath)
-			if err != nil {
-				log.Println(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			//log.Println( string(script))
+//写缓存中间件
 
-			cmd := exec.Command("node", "babel", string(script))
-			//cmd := exec.Command("node", "babel", "let a =1;")
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Println(err)
-				w.WriteHeader(http.StatusInternalServerError)
+//设置头的中间件
+func setHeaderHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		timeStart := time.Now()
+		var timeElapsed time.Duration
+		//设置缓存头
+		cacheHeader(w)
+
+		//读取服务器缓存
+		if isCache {
+			urlPath := r.URL.Path
+			cacheItem := cacheServer[urlPath]
+			if cacheItem != nil {
+				//log.Println(urlPath, "命中缓存")
+				httpWrite(w, cacheItem)
+				timeElapsed = time.Since(timeStart)
+				log.Println(timeElapsed)
 				return
 			}
-			//log.Println(string(out))
-			httpWriteAndCache(w, urlPath, "application/javascript", out)
-			return
-			//结束中间件
 		}
-		//普通的静态服务
 		h.ServeHTTP(w, r)
+		timeElapsed = time.Since(timeStart)
 	})
 }
 
@@ -127,12 +128,6 @@ func es6toes5Handler(h http.Handler) http.Handler {
 func makeFileHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		urlPath := r.URL.Path
-
-		//判断缓存
-		if value, ok := cacheServer[urlPath]; ok {
-			httpWrite(w, &value)
-			return
-		}
 
 		//转发到resource处理器
 		if urlPath == "/favicon.ico" {
@@ -143,6 +138,7 @@ func makeFileHandler() http.Handler {
 		if urlPath == "/" {
 			urlPath = "/index"
 		}
+
 		//page
 		//page := "./root/page" + urlPath
 		if !existsAndWrite("./root/page"+urlPath, w) {
@@ -154,7 +150,7 @@ func makeFileHandler() http.Handler {
 		if !existsAndWrite(resource, w) {
 			return
 		}
-		makeFile(urlPath, resource, w, isIE(r.Header.Get("User-Agent")))
+		makeFile(urlPath, resource, w /*, isIE(r.Header.Get("User-Agent"))*/)
 	})
 }
 
@@ -187,7 +183,7 @@ func exists(ckPath string) bool {
 }
 
 //组装文件，带缓存
-func makeFile(pPath, resource string, w http.ResponseWriter, isIE bool) {
+func makeFile(pPath, resource string, w http.ResponseWriter /*, isIE bool*/) {
 	page := "./root/page" + pPath
 	//查找主要文件
 	appPath := page + "/app.html"
@@ -287,63 +283,8 @@ func makeFile(pPath, resource string, w http.ResponseWriter, isIE bool) {
 		moduleImgTagCompiler(scope, pPath, entry, &appHtml)
 	}
 
-	//压缩
-
-	if isIE {
-		//es6编译es5
-		es6toes5(&appHtml)
-		//polyfill-js
-		polyfillJS(&appHtml)
-		//polyfill-css
-		polyfillCSS(&appHtml)
-	}
-
-	//混淆
 	data := []byte(appHtml)
 	httpWriteAndCache(w, pPath, "text/html", data)
-}
-
-func es6toes5(appHtml *string) {
-	//提取所有<script></script>之间的js
-	//scriptReg := regexp.MustCompile(`<script(?s:(.*?))>(\S)</script>`)
-	scriptReg := regexp.MustCompile(`<script>([\s\S]*)</script>`)
-	*appHtml = scriptReg.ReplaceAllStringFunc(*appHtml, func(s string) string {
-		script := scriptReg.FindStringSubmatch(s)[1]
-		//编译es5
-		cmd := exec.Command("node", "babel", script)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Println(err)
-		}
-		return fmt.Sprintf("<script>%s</script>", out)
-	})
-}
-
-//动态增加垫片库
-func polyfillJS(appHtml *string) {
-	//替换掉第一个<script>
-	//自己开发的的polyfill
-	*appHtml = strings.Replace(*appHtml, "<script", `<script src="/resource/lib/polyfill/myPolyfill.js"></script>
-<script`, 1)
-
-	//====动态引入
-	//https://polyfill.io/v3/url-builder/的polyfill
-	var features = [...]string{
-		"Map",
-		"Set",
-		"document.currentScript",
-	}
-	polyfillIo := fmt.Sprintf("https://polyfill.io/v3/polyfill.min.js?features=%s",
-		strings.Join(features[:], "%2C"))
-	//log.Println(polyfillIo)
-	*appHtml = strings.Replace(*appHtml,
-		"<script", fmt.Sprintf(`<script src="%s"></script><script`, polyfillIo), 1)
-	//======
-
-}
-
-func polyfillCSS(appHtml *string) {
-
 }
 
 //输出并缓存
@@ -355,7 +296,7 @@ func httpWriteAndCache(w http.ResponseWriter, urlPath, contentType string, body 
 		body,
 	}
 	if isCache {
-		cacheServer[urlPath] = cache
+		cacheServer[urlPath] = &cache
 	}
 	//输出
 	httpWrite(w, &cache)
@@ -365,9 +306,6 @@ func httpWriteAndCache(w http.ResponseWriter, urlPath, contentType string, body 
 func httpWrite(w http.ResponseWriter, cache *cacheItem) {
 	w.Header().Set("Content-Type", cache.Type)
 	w.Header().Set("Content-Length", cache.Length)
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
 	_, err := w.Write(cache.Body)
 	if err != nil {
 		log.Println(err)
@@ -384,12 +322,6 @@ func moduleHtmlCompiler(entryPath, entry, moduleTag, class string, appHtml *stri
 			return
 		} else {
 			appHtmlStr := strings.ReplaceAll(*appHtml, moduleTag, fmt.Sprintf(`<div id="%s"%s>%s</div>`, entry, class, string(data)))
-			//=====去掉缓存
-			//t := time.Now().Unix()
-			//appHtmlStr = strings.ReplaceAll(appHtmlStr, `.css">`, fmt.Sprintf(`.css?t=%d">`, t))
-			//appHtmlStr = strings.ReplaceAll(appHtmlStr, `.js">`, fmt.Sprintf(`.js?t=%d">`, t))
-			//=====
-
 			*appHtml = appHtmlStr
 			return
 		}
@@ -655,14 +587,6 @@ func moduleImgTagCompiler(scope, pagePath, entry string, appHtml *string) {
 				}
 			}
 		}
-	}
-}
-
-func isIE(userAgent string) bool {
-	if ai {
-		return strings.Contains(userAgent, "Trident")
-	} else {
-		return ai
 	}
 }
 
