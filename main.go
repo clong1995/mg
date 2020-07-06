@@ -150,7 +150,7 @@ func makeFileHandler() http.Handler {
 		if !existsAndWrite(resource, w) {
 			return
 		}
-		makeFile(urlPath, resource, w /*, isIE(r.Header.Get("User-Agent"))*/)
+		makeFile(urlPath, resource, w)
 	})
 }
 
@@ -183,7 +183,7 @@ func exists(ckPath string) bool {
 }
 
 //组装文件，带缓存
-func makeFile(pPath, resource string, w http.ResponseWriter /*, isIE bool*/) {
+func makeFile(pPath, resource string, w http.ResponseWriter) {
 	page := "./root/page" + pPath
 	//查找主要文件
 	appPath := page + "/app.html"
